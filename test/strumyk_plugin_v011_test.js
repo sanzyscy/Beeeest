@@ -421,7 +421,7 @@
         }
         function openBrowser(url){var u=safeUrl(url,domain());if(!u)return notify(tr('unverified'));try{if(env.AndroidJS&&typeof env.AndroidJS.openBrowser==='function')env.AndroidJS.openBrowser(u);else env.open(u,'_blank','noopener');}catch(e){notify(tr('httpError'));}}
         function openStream(src,evt,mode){
-            if(src.type==='web'||src.type==='embed'){if(!src.url)return notify(tr('unverified'));openBrowser(src.url);return;}
+            if(src.type==='web'||src.type==='embed'){if(!src.url)return notify(tr('unverified'));if(currentScreen&&currentScreen.showEmbedded){currentScreen.showEmbedded(src.url,evt&&evt.title||src.name);return;}openBrowser(src.url);return;}
             if(src.type==='acestream'){if(env.AndroidJS&&env.AndroidJS.openBrowser)env.AndroidJS.openBrowser(src.url);else notify(tr('unverified'));return;}
             if(src.type==='youtube'){openBrowser(src.url);return;}
             try {if(L.Player.callback)L.Player.callback(function(){if(currentScreen)currentScreen.start();});if(L.Player.playlist)L.Player.playlist([]);L.Player.runas(mode);try{L.Player.play({url:src.url,title:evt.title,tv:true,headers:src.headers||{},launch_player:mode,hls_type:src.type==='hls'?'hlsjs':undefined});}finally{L.Player.runas('');}}
@@ -494,6 +494,27 @@
             function tvFavorites(){var ids=get('tvFavorites',[]);return Array.isArray(ids)?ids.filter(function(v){return typeof v==='string';}):[];}
             function tvIsFavorite(id){return tvFavorites().indexOf(id)!==-1;}
             function toggleTvFavorite(id){var ids=tvFavorites().filter(function(x){return x!==id;});if(!tvIsFavorite(id))ids.unshift(id);set('tvFavorites',ids);draw();}
+            function channelPage(ch){return domain()+'telewizja/#'+encodeURIComponent(ch.id);}
+            function showTvChannel(ch){
+                webView={url:ch.url||channelPage(ch),title:ch.name,isTv:true,hasEmbed:!!ch.url};draw();
+            }
+            function webPlayer(){
+                area.empty();
+                var v=webView;
+                area.append(text('h2','str-section','▶ '+v.title));
+                var toolbar=$('<div class="str-toolbar">');
+                toolbar.append(btn('‹ '+tr('back'),function(){webView=null;draw();},'web-back'));
+                toolbar.append(btn('↗ '+tr('browser'),function(){openBrowser(v.url);},'web-browser'));
+                toolbar.append(btn('↻ '+tr('refresh'),function(){draw();},'web-reload'));
+                area.append(toolbar);
+                area.append(text('div','str-tv-note',v.hasEmbed?'WEB iframe — перевірка в Lampa, це не прямий HLS-потік.':'Сайт не надав прямої адреси каналу. Пробуємо його сторінку; якщо iframe заблоковано — відкрий у браузері.'));
+                var box=$('<div class="str-video-shell">');
+                var frame=$('<iframe class="str-video-frame" title="Strumyk WEB video">')
+                    .attr({src:v.url,allow:'autoplay; encrypted-media; fullscreen; picture-in-picture',allowfullscreen:'',
+                           sandbox:'allow-forms allow-scripts allow-same-origin allow-presentation',referrerpolicy:'strict-origin-when-cross-origin'});
+                box.append(frame);area.append(box);
+                area.append(btn('✕ '+tr('back'),function(){webView=null;draw();},'web-close-bottom'));
+            }
             function diagnosticsView(){
                 area.empty();
                 area.append(text('h2','str-section',tr('diagnostics')));
@@ -527,7 +548,8 @@
                     card.append(text('div','str-tv-channel-name','📺 '+ch.name));
                     card.append(epgBlock(ch));
                     var toolbar=$('<div class="str-tv-actions">');
-                    toolbar.append(btn('↗ '+(ch.url?ttv('tvOpen'):ttv('tvPage')),function(){openBrowser(ch.url || (domain()+'telewizja/'));},'channel-'+ch.id,'str-tv-open'));
+                    toolbar.append(btn('▶ У Lampa (тест)',function(){showTvChannel(ch);},'channel-'+ch.id,'str-tv-open'));
+                    toolbar.append(btn('↗ Браузер',function(){openBrowser(ch.url || channelPage(ch));},'channel-external-'+ch.id,'str-tv-external'));
                     toolbar.append(btn((tvIsFavorite(ch.id)?'★':'☆'),function(){toggleTvFavorite(ch.id);},'tv-fav-'+ch.id,'str-tv-fav'));
                     card.append(toolbar);
                     if(ch.url)card.append(text('small','str-tv-embed-note',ttv('tvWebOnly')));
@@ -536,7 +558,7 @@
                 area.append(grid);
             }
             function refreshTvVisuals(){
-                if(!active||route!=='tv')return;
+                if(!active||route!=='tv'||webView||diagnosticsOpen)return;
                 area.find('.str-tv-epg[data-tv-id]').each(function(){
                     var el=$(this),id=el.attr('data-tv-id'),ch=tvChannels.filter(function(c){return c.id===id;})[0];
                     if(!ch)return;el.replaceWith(epgBlock(ch));
@@ -548,7 +570,7 @@
                 if(tvEpgStatus==='loading')return;
                 if(!force&&tvEpgStatus==='ok'&&Date.now()-tvEpgFetched<600000)return;
                 var token=++tvEpgRequest;tvEpgStatus='loading';tvEpgError='';
-                if(active&&route==='tv')draw();
+                if(active&&route==='tv'&&!webView&&!diagnosticsOpen)draw();
                 request(domain()+'api/epg.php').then(function(body){
                     if(token!==tvEpgRequest)return;
                     var parsed=JSON.parse(String(body));
@@ -556,10 +578,10 @@
                     tvEpg=parseTvEpg(parsed,tvChannels);
                     tvEpgStatus='ok';tvEpgFetched=Date.now();
                     tvClockServer=Number.isFinite(parsed.now)?parsed.now*1000:null;tvClockLocal=Date.now();
-                    if(active&&route==='tv')draw();
+                    if(active&&route==='tv'&&!webView&&!diagnosticsOpen)draw();
                 }).catch(function(err){if(token!==tvEpgRequest)return;
                     tvEpgStatus='error';tvEpgError=clean(err&&err.message||err).slice(0,150);
-                    if(active&&route==='tv')draw();
+                    if(active&&route==='tv'&&!webView&&!diagnosticsOpen)draw();
                 });
             }
             function draw(){if(!active)return;paintHeader();if(diagnosticsOpen){diagnosticsView();foot.text('STRUMYK · '+VERSION);focus('diag-close');return;}if(webView){webPlayer();foot.text('STRUMYK · '+VERSION);focus('web-back');return;}if(selected){detail();foot.text('STRUMYK · '+VERSION);focus('back');return;}area.empty();if(route==='tv'){tvCards();foot.text(domain()+' · '+VERSION);focus('tv-category');return;}listTools();var rows=route==='favorites'?favorites().map(function(f){return all.find(function(e){return e.id===f.id;})||f;}):all;rows=filterEvents(rows,{onlyLive:route==='live',search:search,sport:filter.sport,league:filter.league,date:filter.date,status:filter.status});area.append(text('div','str-section',tr(route==='favorites'?'fav':route==='live'?'live':'schedule')+' · '+rows.length));if(sportNote && route!=='favorites')area.append(text('div','str-tv-note',sportNote));if(rows.length)eventCards(rows);else {
@@ -618,15 +640,16 @@
                 }).catch(function(e){if(!active||token!==seq)return;working=false;
                     failMessage='Помилка спортивних API: '+clean(e&&e.message||e).slice(0,180);draw();});
             }
+            this.showEmbedded=function(url,title){webView={url:url,title:title||'WEB Player',isTv:false,hasEmbed:true};draw();};
             this.create=function(parent){if(parent&&parent.css)parent.css({height:'100%',minHeight:0});return root;};this.render=function(){return root;};
             this.start=function(){active=true;currentScreen=this;env.document.body.classList.add('strumyk-active');focusController();if(tvTimer===null)tvTimer=env.setInterval(refreshTvVisuals,30000);if(route==='tv'){draw();if(tvEpgStatus==='idle')loadTvEpg(false);}else if(!all.length&&!working&&!failMessage)load();else draw();};
-            this.stop=function(){active=false;seq++;tvEpgRequest++;if(tvEpgStatus==='loading')tvEpgStatus='idle';if(tvTimer!==null){env.clearInterval(tvTimer);tvTimer=null;}env.document.body.classList.remove('strumyk-active');};this.pause=this.stop;
+            this.stop=function(){root.find('.str-video-frame').attr('src','about:blank').remove();active=false;seq++;tvEpgRequest++;if(tvEpgStatus==='loading')tvEpgStatus='idle';if(tvTimer!==null){env.clearInterval(tvTimer);tvTimer=null;}env.document.body.classList.remove('strumyk-active');};this.pause=this.stop;
             this.destroy=function(){self.stop();root.remove();if(currentScreen===this)currentScreen=null;};
         }
         function open(){L.Activity.push({url:'',title:'STRUMYK',component:'strumyk_sports',page:1});}
         function ensureMenu(){if(env.document.querySelector('.strumyk-menu'))return;var target=$('.menu .menu__list').first();if(!target.length)return;var item=$('<li class="menu__item selector strumyk-menu"><div class="menu__ico">⚡</div><div class="menu__text">STRUMYK SPORTS</div></li>');item.on('hover:enter.str click.str',open);target.append(item);}
         function addCss(){if(env.document.getElementById('strumyk-style'))return;$('<style id="strumyk-style">').text(
-            '.strumyk-active .head{display:none}.strumyk-active .content{top:0!important}.str-screen{--str-text:#f6f8ff;--str-muted:#aebbd0;min-height:100%;height:100%;display:flex;flex-direction:column;color:var(--str-text);background:radial-gradient(ellipse at 85% -5%,#174366 0,transparent 40%),linear-gradient(145deg,#081526,#102239 62%,#0a1727);overflow:hidden;font-size:1.12em}.str-head{padding:1.3em 2em .8em;display:flex;align-items:center;justify-content:space-between;gap:1em}.str-brand{font-weight:900;font-size:1.5em;letter-spacing:.045em;color:#7dd3fc}.str-brand-tag{font-size:.47em;letter-spacing:.3em;color:#d5e7fa;margin-left:.35em}.str-head-actions{display:flex;gap:.5em}.str-nav{padding:0 2em .8em;display:flex;gap:.5em;border-bottom:1px solid #ffffff20;overflow-x:auto}.str-btn{color:inherit;background:#1a344c;border:1px solid #7296b13d;border-radius:.75em;padding:.65em 1em;font:inherit;cursor:pointer;text-align:left}.str-btn.focus,.str-btn:focus,.str-btn:hover{background:#2b6287!important;box-shadow:0 0 0 .16em #67cdfa77;outline:none}.str-current{background:#255b84;color:#d4f5ff}.str-icon{font-size:1.3em;min-width:2.6em;text-align:center}.str-area{flex:1;overflow-y:auto;overscroll-behavior:contain;padding:1.25em 2em 3em}.str-toolbar{display:flex;flex-wrap:wrap;gap:.65em;margin:.5em 0 1.2em}.str-section{font-weight:800;font-size:1.24em;margin:1.25em 0 .75em}.str-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(19em,100%),1fr));gap:1em}.str-card{padding:1.1em;border-radius:1em;background:linear-gradient(150deg,#203c58ee,#12283ddc);border:1px solid #6b9ac249;min-width:0;box-shadow:0 10px 25px #00000030}.str-card-meta{color:#9edcff;font-size:.76em;min-height:1.4em;margin-bottom:.7em;overflow-wrap:anywhere}.str-match{display:block;width:100%;font-weight:750;font-size:1.08em;padding:.3em 0;margin:.25em 0;background:transparent;border:0;line-height:1.45}.str-card-time,.str-subtitle,.str-source-info{color:var(--str-muted);font-size:.83em}.str-score{font-size:1.3em;font-weight:800;margin-top:.5em}.str-title{font-size:1.7em;margin:.2em 0 .5em;overflow-wrap:anywhere}.str-stream-row{display:flex;flex-direction:column;gap:.4em;background:#17324a;border:1px solid #496e873f;border-radius:.8em;padding:.7em;margin:.5em 0}.str-stream-btn{background:#225476}.str-group-label{font-size:.95em;letter-spacing:.1em;color:#8cdbff}.str-empty{border:1px dashed #6284a366;border-radius:1em;padding:1.2em;color:#e2ecf4;margin:1em 0}.str-note{color:#a3b9cc}.str-foot{flex:none;border-top:1px solid #ffffff18;color:#8fabbc;font-size:.7em;padding:.5em 2.8em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.str-modal{font-size:1.1em;line-height:1.55;padding:1em}.strumyk-menu .menu__ico{font-size:1.1em;color:#7dd3fc}.str-tv-epg{font-size:.8em;margin:.65em 0 .15em;line-height:1.4;min-height:2em}.str-tv-now{color:#ecf7ff;font-weight:650;overflow-wrap:anywhere}.str-tv-next,.str-tv-range,.str-tv-embed-note{color:#a2bfd0;font-size:.85em;line-height:1.4;overflow-wrap:anywhere}.str-tv-range{margin-top:.4em}.str-tv-next{margin-top:.45em}.str-tv-track{margin:.4em 0;height:.35em;background:#4d6575;border-radius:1em;overflow:hidden}.str-tv-fill{height:100%;background:linear-gradient(90deg,#1db9e5,#78d7ff);border-radius:1em;transition:width .3s ease}.str-tv-note{font-size:.76em;color:#afcedd;margin:.3em 0 1em}.str-tv-status{font-size:.75em;color:#caeaf6;margin:.4em 0}.str-tv-channel-name{font-size:1.12em;font-weight:800;margin:.4em 0 .7em;overflow-wrap:anywhere}.str-tv-actions{display:flex;align-items:center;gap:.5em;margin-top:1.1em}.str-tv-open{font-size:.72em;flex:1}.str-tv-fav{font-size:1.1em;min-width:2.7em;text-align:center}.str-diag-text{white-space:pre-wrap;overflow-wrap:anywhere;background:#11253b;border:1px solid #8aa8bc45;padding:1em;border-radius:.8em;font-size:.85em;max-height:55vh;overflow-y:auto} @media(max-width:650px){.str-screen{font-size:1em}.str-head,.str-nav{padding-left:1em;padding-right:1em}.str-area{padding:1em}.str-grid{grid-template-columns:1fr 1fr;gap:.55em}.str-card{padding:.8em}.str-brand{font-size:1.3em}.str-btn{padding:.65em .7em}.str-card-meta{font-size:.7em}.str-match{font-size:1em}}@media(max-width:440px){.str-grid{grid-template-columns:1fr}}'
+            '.strumyk-active .head{display:none}.strumyk-active .content{top:0!important}.str-screen{--str-text:#f6f8ff;--str-muted:#aebbd0;min-height:100%;height:100%;display:flex;flex-direction:column;color:var(--str-text);background:radial-gradient(ellipse at 85% -5%,#174366 0,transparent 40%),linear-gradient(145deg,#081526,#102239 62%,#0a1727);overflow:hidden;font-size:1.12em}.str-head{padding:1.3em 2em .8em;display:flex;align-items:center;justify-content:space-between;gap:1em}.str-brand{font-weight:900;font-size:1.5em;letter-spacing:.045em;color:#7dd3fc}.str-brand-tag{font-size:.47em;letter-spacing:.3em;color:#d5e7fa;margin-left:.35em}.str-head-actions{display:flex;gap:.5em}.str-nav{padding:0 2em .8em;display:flex;gap:.5em;border-bottom:1px solid #ffffff20;overflow-x:auto}.str-btn{color:inherit;background:#1a344c;border:1px solid #7296b13d;border-radius:.75em;padding:.65em 1em;font:inherit;cursor:pointer;text-align:left}.str-btn.focus,.str-btn:focus,.str-btn:hover{background:#2b6287!important;box-shadow:0 0 0 .16em #67cdfa77;outline:none}.str-current{background:#255b84;color:#d4f5ff}.str-icon{font-size:1.3em;min-width:2.6em;text-align:center}.str-area{flex:1;overflow-y:auto;overscroll-behavior:contain;padding:1.25em 2em 3em}.str-toolbar{display:flex;flex-wrap:wrap;gap:.65em;margin:.5em 0 1.2em}.str-section{font-weight:800;font-size:1.24em;margin:1.25em 0 .75em}.str-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(19em,100%),1fr));gap:1em}.str-card{padding:1.1em;border-radius:1em;background:linear-gradient(150deg,#203c58ee,#12283ddc);border:1px solid #6b9ac249;min-width:0;box-shadow:0 10px 25px #00000030}.str-card-meta{color:#9edcff;font-size:.76em;min-height:1.4em;margin-bottom:.7em;overflow-wrap:anywhere}.str-match{display:block;width:100%;font-weight:750;font-size:1.08em;padding:.3em 0;margin:.25em 0;background:transparent;border:0;line-height:1.45}.str-card-time,.str-subtitle,.str-source-info{color:var(--str-muted);font-size:.83em}.str-score{font-size:1.3em;font-weight:800;margin-top:.5em}.str-title{font-size:1.7em;margin:.2em 0 .5em;overflow-wrap:anywhere}.str-stream-row{display:flex;flex-direction:column;gap:.4em;background:#17324a;border:1px solid #496e873f;border-radius:.8em;padding:.7em;margin:.5em 0}.str-stream-btn{background:#225476}.str-group-label{font-size:.95em;letter-spacing:.1em;color:#8cdbff}.str-empty{border:1px dashed #6284a366;border-radius:1em;padding:1.2em;color:#e2ecf4;margin:1em 0}.str-note{color:#a3b9cc}.str-foot{flex:none;border-top:1px solid #ffffff18;color:#8fabbc;font-size:.7em;padding:.5em 2.8em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.str-modal{font-size:1.1em;line-height:1.55;padding:1em}.strumyk-menu .menu__ico{font-size:1.1em;color:#7dd3fc}.str-tv-epg{font-size:.8em;margin:.65em 0 .15em;line-height:1.4;min-height:2em}.str-tv-now{color:#ecf7ff;font-weight:650;overflow-wrap:anywhere}.str-tv-next,.str-tv-range,.str-tv-embed-note{color:#a2bfd0;font-size:.85em;line-height:1.4;overflow-wrap:anywhere}.str-tv-range{margin-top:.4em}.str-tv-next{margin-top:.45em}.str-tv-track{margin:.4em 0;height:.35em;background:#4d6575;border-radius:1em;overflow:hidden}.str-tv-fill{height:100%;background:linear-gradient(90deg,#1db9e5,#78d7ff);border-radius:1em;transition:width .3s ease}.str-tv-note{font-size:.76em;color:#afcedd;margin:.3em 0 1em}.str-tv-status{font-size:.75em;color:#caeaf6;margin:.4em 0}.str-tv-channel-name{font-size:1.12em;font-weight:800;margin:.4em 0 .7em;overflow-wrap:anywhere}.str-tv-actions{display:flex;align-items:center;gap:.5em;margin-top:1.1em}.str-tv-open{font-size:.72em;flex:1}.str-tv-fav{font-size:1.1em;min-width:2.7em;text-align:center}.str-tv-actions{flex-wrap:wrap}.str-tv-external{font-size:.72em}.str-video-shell{width:100%;height:56vh;max-height:80vh;min-height:180px;background:#000;border-radius:.8em;overflow:hidden;margin:.7em 0 1.5em}.str-video-frame{width:100%;height:100%;border:0;display:block}.str-diag-text{white-space:pre-wrap;overflow-wrap:anywhere;background:#11253b;border:1px solid #8aa8bc45;padding:1em;border-radius:.8em;font-size:.85em;max-height:55vh;overflow-y:auto} @media(max-width:650px){.str-screen{font-size:1em}.str-head,.str-nav{padding-left:1em;padding-right:1em}.str-area{padding:1em}.str-grid{grid-template-columns:1fr 1fr;gap:.55em}.str-card{padding:.8em}.str-brand{font-size:1.3em}.str-btn{padding:.65em .7em}.str-card-meta{font-size:.7em}.str-match{font-size:1em}}@media(max-width:440px){.str-grid{grid-template-columns:1fr}}'
         ).appendTo('head');}
         function init(){addCss();L.Component.add('strumyk_sports',Screen);ensureMenu();if(env.MutationObserver){var obs=new env.MutationObserver(function(){if(!env.document.querySelector('.strumyk-menu'))ensureMenu();});obs.observe(env.document.documentElement,{childList:true,subtree:true});}else env.setInterval(ensureMenu,2500);}
         env.StrumykPlugin={version:VERSION,open:open};
