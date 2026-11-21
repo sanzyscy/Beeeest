@@ -1,25 +1,26 @@
 # STRUMYK SPORTS × Lampa
 
-Дослідницький проєкт для LampaS і Lampa Uncensored. Домашній сайт: https://strumyk.ca/.
+Дослідницький проєкт для LampaS та Lampa Uncensored, основна адреса: https://strumyk.ca/.
 
-## Статус — v0.5 research, 22.11.2026
+## Стан — v0.6 research (22.11.2026)
 
-Отримано 9 справжніх браузерних знімків v0.4. Дані: **3 події, 12 варіантів джерел, 8 унікальних хостів**. Кожен варіант реалізований кнопкою `#sources .lang-group .q-pill.src-btn[data-src]`, а вибраний URL стає адресою iframe в плеєрі. Це поки **embed HTML-плеєри, не прямі HLS/DASH-потоки**.
+Опрацьовано сім знімків публічних JS (чотири з головного спортивного розділу, три з `/telewizja/`). Усі містили ті самі два файли: `/js/strumyk-app.js` та `/js/strumyk-schedule.js`, тому ТВ-каталог з них **не отримано**.
 
-Локальний JS-плагін v0.5 містить парсер справжнього DOM джерел, офлайн-парсер JSON знімків, захист від masked URL, і відділення iframe-сторінок від прямих відеопосилань. Тести: 188 подій і 29 LIVE з попереднього розкладу, 9/9 знімків, 12 джерел, усі PASS.
+**Спортивна схема підтверджена кодом сайту:** `window.SK.api.L/J/X/M/O`; паралельне отримання JSON-масивів; дедуплікація за `id` з пріоритетом J→O→M→X→L; `J` — популярні. Подія має `title.pl.home/away`, `startTime`, `category`, `tournament`, `_embeds`; embed-масиви розподіляються за `language` і містять `label`, `embed`.
 
-**Важливо:** не публікувати цей JS як робочий реліз. Головний сайт на неінтерактивні запити іноді відповідає gate/403; завантаження живих даних і запуск Lampa/VLC/MX ще не підтверджено.
+У локальному прототипі v0.6 реалізовано чистий API-парсер `parseStrumykApiBundle` із підтвердженою схемою, правильне розділення веб-iframe і прямих медіапотоків, тести JSON + збережених DOM-знімків. **Живі API-виклики, запуск Lampa, VLC/MX та ТВ-каталог не перевірені.** Плагін ще НЕ публікується як реліз.
 
-## Інструменти дослідження
+### Телеекрани
 
-- [tools/strumyk_browser_capture_v031.js](tools/strumyk_browser_capture_v031.js) — браузерний знімок розкладу.
-- [tools/strumyk_capture_sources_v04.js](tools/strumyk_capture_sources_v04.js) — точна DOM-діагностика `#sources`.
-- [tools/strumyk_public_js_capture_v05.js](tools/strumyk_public_js_capture_v05.js) — **наступний крок**: read-only отримання двох публічних JS-файлів сайту. Без cookie/localStorage, без відправлення даних назовні; тільки локальне завантаження JSON.
+Код сайту `/js/strumyk-schedule.js` автономно працює на TV сторінці через `window.SK_SCHED`, але це стосується спортивного розкладу й не доводить джерело ТВ-каналів.
 
-Після отримання коду `/js/strumyk-app.js` та `/js/strumyk-schedule.js` перевіримо спосіб отримання матчів і джерел через фактичні API без припущень.
+**Наступний крок:** запустити з `/telewizja/` нашу [цільову TV-діагностику v0.6](tools/strumyk_tv_capture_v06.js), спершу на каталозі, потім з відкритим каналом. Експортує лише локальний JSON з очищеними URL, DOM-метаданими, скриптами й назвами API-параметрів.
 
-## Вимоги до майбутнього релізу
+### Інструменти
 
-Оригінальні назви команд, UA за замовчуванням і словники PL/RU, усі мовні групи та варіанти якості, Android/Android TV, зручна навігація пультом, програмний відеоплеєр для **справжніх** медіапосилань та зовнішній VLC/MX. Веб-iframe не слід видавати за прямий відеопотік.
+- [tools/strumyk_browser_capture_v031.js](tools/strumyk_browser_capture_v031.js)
+- [tools/strumyk_capture_sources_v04.js](tools/strumyk_capture_sources_v04.js)
+- [tools/strumyk_public_js_capture_v05.js](tools/strumyk_public_js_capture_v05.js)
+- [tools/strumyk_tv_capture_v06.js](tools/strumyk_tv_capture_v06.js)
 
-Робочий LiveTV-плагін — окремий проєкт, не змінюється.
+LiveTV — окремий проєкт і не змінюється. Не публікувати знімки з приватними токенами в публічному GitHub.
