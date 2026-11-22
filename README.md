@@ -91,3 +91,15 @@ https://cdn.jsdelivr.net/gh/sanzyscy/Beeeest@62d0de01d77a0de5aa239ed1c7840e8142a
 - Локальна перевірка: node --check та набір офлайн-тестів PASS. Реальне відтворення на Android/ATV **не підтверджено**.
 
 Попередні v0.10/v0.11 і робочий LiveTV не змінені.
+
+## STRUMYK v0.13 — browser-assisted bridge TEST (22.11.2026)
+
+**Проблема:** Lampa отримує тільки частину J/X/O (2 спортивні події), тоді як Chrome бачить більше. Для L.php та M.php потрібні реальні параметри із конфігурації сайту SK.api / SK_SCHED.api.
+
+**Ізольовані тестові файли:**
+- [test/strumyk_plugin_v013_bridge_test.js](test/strumyk_plugin_v013_bridge_test.js): спочатку локальний каталог Termux (127.0.0.1:8754), потім резервний неповний J/X/O; кнопка Назад та TV EPG збережені.
+- [tools/strumyk_browser_sync_v013.js](tools/strumyk_browser_sync_v013.js): Chrome читає п’ять власних JSON API Strumyk, передає події локальному сервісу або завантажує JSON в Download.
+
+Python Bridge + optional resolver є в архіві цієї розмови STRUMYK_SPORTS_V013_BRIDGE_TEST.zip (поки не завантажені на GitHub). Loopback за замовчуванням. Без обходу DRM.
+
+Локальні тести: 5 Python інтеграційних, браузерний mock п’яти API, parser mock 19 подій, 12 старих регресій та JS синтаксис пройшли. **У реальних Chrome/Termux/Lampa v0.13 і VLC/MX поки НЕ ПЕРЕВІРЕНО.** Синхронізація з браузером наразі ручна; IPTV телевізійні джерела з порожніми URL залишаються окремим блокером.
