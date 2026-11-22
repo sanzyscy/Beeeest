@@ -631,8 +631,8 @@
                 var actions=[{id:'inner',title:'▶ Програмний плеєр (пошук HLS)'},{id:'android',title:'▶ Зовнішній VLC / MX Player (пошук HLS)'},
                     {id:'web',title:'WEB-плеєр (iframe)'},{id:'browser',title:'Відкрити у браузері'}];
                 menuSelect('Як відкрити: '+title,actions,function(choice){
-                    if(choice.id==='browser'){openBrowser(url);return;}
-                    if(choice.id==='web'){webView={url:url,title:title,isTv:kindOfSource==='tv',hasEmbed:true};draw();return;}
+                    if(choice.id==='browser'){openBrowser(kindOfSource==='sport'&&evt&&evt.id?eventUrl('',domain(),evt.id):url);return;}
+                    if(choice.id==='web'){webView={url:url,title:title,isTv:kindOfSource==='tv',hasEmbed:true,siteEventId:kindOfSource==='sport'&&evt?evt.id:null};draw();return;}
                     area.prepend(text('div','str-tv-status','Шукаємо прямий відеопотік…'));
                     resolveOpenMedia(url,function(page,ref){return request(page,{Referer:ref||domain()});},1).then(function(media){
                         if(!active)return;playResolvedMedia(media,evt,choice.id);
@@ -779,7 +779,7 @@
                 area.append(text('h2','str-section','▶ '+v.title));
                 var toolbar=$('<div class="str-toolbar">');
                 toolbar.append(btn('‹ '+tr('back'),function(){webView=null;draw();},'web-back'));
-                toolbar.append(btn('↗ '+tr('browser'),function(){openBrowser(v.url);},'web-browser'));
+                toolbar.append(btn('↗ '+tr('browser'),function(){openBrowser(v.siteEventId?eventUrl('',domain(),v.siteEventId):v.url);},'web-browser'));
                 toolbar.append(btn('↻ '+tr('refresh'),function(){draw();},'web-reload'));
                 area.append(toolbar);
                 area.append(text('div','str-tv-note',v.hasEmbed?'WEB iframe — перевірка в Lampa, це не прямий HLS-потік.':'Сайт не надав прямої адреси каналу. Пробуємо його сторінку; якщо iframe заблоковано — відкрий у браузері.'));
