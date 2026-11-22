@@ -505,7 +505,7 @@
         function domain(){return normalizeHost(get('host',DEFAULT_HOST))||DEFAULT_HOST;}
         function text(tag,cls,s){return $('<'+tag+'>').addClass(cls||'').text(s===undefined?'':s);}
         function btn(label,fn,key,cls){return text('button','selector str-btn '+(cls||''),label).attr({type:'button','data-str-key':key||label,tabindex:0}).on('hover:enter.str click.str',function(e){e.preventDefault();e.stopPropagation();fn();});}
-        function notify(s){if(L.Noty&&L.Noty.show)L.Noty.show(s);}
+        function notify(s){if(currentScreen&&typeof currentScreen.showNotice==='function'&&currentScreen.showNotice(s))return;if(L.Noty&&L.Noty.show)L.Noty.show(s);}
         function sourceErrorText(err){
             var msg=clean(err&&err.message||err);
             if(/(?:status\W*404|HTTP\s*404)/i.test(msg))return 'HTTP 404: WEB-джерело не відповідає на прямий запит';
@@ -554,7 +554,7 @@
         }
         var currentScreen=null;
         function Screen() {
-            var self=this,active=false,working=false,seq=0,route='schedule',all=[],selected=null,failMessage='',currentHtml='',apiChecks=[],sportNote='',diagnosticsOpen=false,drmViewOpen=false,drmProbeStatus='не запускали',drmProbeBusy=false,drmProbeSeq=0,networkProbeSeq=0,networkProbeBusy=false,networkProbeStatus='не запускали',drmDemoOpen=false,drmDemoPlayer=null,drmDemoVideo=null,drmDemoSeq=0,layoutLastView='',layoutListenerActive=false,configEditing='',configDraft='',webView=null,detailSources=[],sourceFilter={language:'all',type:'all'},search='',searchEditing='',searchDraft='',filter={sport:'all',league:'all',date:'all',status:'all'},tvCategory='all',tvSearch='',tvEpgStatus='idle',tvEpgError='',tvEpg=[],tvEpgRequest=0,tvEpgFetched=0,tvClockServer=null,tvClockLocal=null,tvTimer=null,videoBusy=false,videoStatus='',tvChannels=normalizeTvChannels(TV_CATALOG_SNAPSHOT),root=$('<div class="str-screen">'),head=$('<div class="str-head">'),nav=$('<div class="str-nav">'),area=$('<div class="str-area">'),foot=$('<div class="str-foot">');
+            var self=this,active=false,working=false,seq=0,route='schedule',all=[],selected=null,failMessage='',currentHtml='',apiChecks=[],sportNote='',diagnosticsOpen=false,drmViewOpen=false,drmProbeStatus='не запускали',drmProbeBusy=false,drmProbeSeq=0,networkProbeSeq=0,networkProbeBusy=false,networkProbeStatus='не запускали',drmDemoOpen=false,drmDemoPlayer=null,drmDemoVideo=null,drmDemoSeq=0,layoutLastView='',layoutListenerActive=false,toastSerial=0,configEditing='',configDraft='',webView=null,detailSources=[],sourceFilter={language:'all',type:'all'},search='',searchEditing='',searchDraft='',filter={sport:'all',league:'all',date:'all',status:'all'},tvCategory='all',tvSearch='',tvEpgStatus='idle',tvEpgError='',tvEpg=[],tvEpgRequest=0,tvEpgFetched=0,tvClockServer=null,tvClockLocal=null,tvTimer=null,videoBusy=false,videoStatus='',tvChannels=normalizeTvChannels(TV_CATALOG_SNAPSHOT),root=$('<div class="str-screen">'),head=$('<div class="str-head">'),nav=$('<div class="str-nav">'),area=$('<div class="str-area">'),foot=$('<div class="str-foot">');
             root.append(head,nav,area,foot);
             /* Shared viewport/layout controller for every STRUMYK screen.
                Lampa mobile bars can overlay the Activity content. We reserve
@@ -1379,10 +1379,26 @@
                 }).catch(function(e){if(!active||token!==seq)return;working=false;
                     failMessage='Помилка каталогу: '+clean(e&&e.message||e).slice(0,180);draw();});
             }
+            /* In-plugin notices appear above the content, never behind
+               the host application's fixed bottom mobile navbar. */
+            this.showNotice=function(message){
+                if(!active)return false;
+                var serial=++toastSerial;
+                root.find('.str-notice').remove();
+                var box=$('<div class="str-notice">').attr({role:'status','aria-live':'polite'});
+                var cleanText=String(message==null?'':message).replace(/https?:\/\/[^\s"']+/g,'[URL]').slice(0,250);
+                box.append(text('span','str-notice-message',cleanText));
+                var close=$('<button type="button" class="str-notice-close">✕</button>');
+                close.on('click',function(){box.remove();});
+                box.append(close);
+                root.append(box);
+                setTimeout(function(){if(serial===toastSerial)box.remove();},7000);
+                return true;
+            };
             this.showEmbedded=function(url,title){webView={url:url,title:title||'WEB Player',isTv:false,hasEmbed:true};draw();};
             this.create=function(parent){if(parent&&parent.css)parent.css({height:'100%',minHeight:0});return root;};this.render=function(){return root;};
             this.start=function(){active=true;currentScreen=this;env.document.body.classList.add('strumyk-active');if(!layoutListenerActive&&env.addEventListener){env.addEventListener('resize',onLayoutResize);layoutListenerActive=true;}syncUiInsets();focusController();if(tvTimer===null)tvTimer=env.setInterval(refreshTvVisuals,30000);if(route==='tv'){draw();if(tvEpgStatus==='idle')loadTvEpg(false);}else if(!all.length&&!working&&!failMessage)load();else draw();};
-            this.stop=function(){if(layoutListenerActive&&env.removeEventListener){env.removeEventListener('resize',onLayoutResize);layoutListenerActive=false;}layoutLastView='';stopDrmDemo();drmDemoOpen=false;root.find('.str-video-frame').attr('src','about:blank').remove();active=false;searchEditing='';searchDraft='';configEditing='';configDraft='';drmProbeSeq++;drmProbeBusy=false;networkProbeSeq++;networkProbeBusy=false;drmViewOpen=false;videoBusy=false;videoStatus='';seq++;tvEpgRequest++;if(tvEpgStatus==='loading')tvEpgStatus='idle';if(tvTimer!==null){env.clearInterval(tvTimer);tvTimer=null;}env.document.body.classList.remove('strumyk-active');};this.pause=this.stop;
+            this.stop=function(){toastSerial++;root.find('.str-notice').remove();if(layoutListenerActive&&env.removeEventListener){env.removeEventListener('resize',onLayoutResize);layoutListenerActive=false;}layoutLastView='';stopDrmDemo();drmDemoOpen=false;root.find('.str-video-frame').attr('src','about:blank').remove();active=false;searchEditing='';searchDraft='';configEditing='';configDraft='';drmProbeSeq++;drmProbeBusy=false;networkProbeSeq++;networkProbeBusy=false;drmViewOpen=false;videoBusy=false;videoStatus='';seq++;tvEpgRequest++;if(tvEpgStatus==='loading')tvEpgStatus='idle';if(tvTimer!==null){env.clearInterval(tvTimer);tvTimer=null;}env.document.body.classList.remove('strumyk-active');};this.pause=this.stop;
             this.destroy=function(){self.stop();root.remove();if(currentScreen===this)currentScreen=null;};
         }
         function open(){L.Activity.push({url:'',title:'STRUMYK',component:'strumyk_sports',page:1});}
@@ -1412,6 +1428,8 @@
               '.str-diag-text{max-width:100%;overflow-wrap:anywhere;white-space:pre-wrap;font-size:.8em;line-height:1.4;box-sizing:border-box}' +
               '.str-btn{white-space:normal!important;overflow-wrap:anywhere;line-height:1.35;min-height:2.5em}' +
               '.str-foot{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
+              '.str-screen{position:relative!important}.str-notice{position:absolute;top:clamp(4rem,12vh,7rem);left:1rem;right:1rem;z-index:40;display:flex;align-items:flex-start;gap:.6em;justify-content:space-between;padding:.7em 1em;border:1px solid #7dc7e9;border-radius:.75em;background:#173951;color:#fff;box-shadow:0 10px 34px #0009;overflow-wrap:anywhere;font-size:.9em;line-height:1.4}.str-notice-message{flex:1;min-width:0}.str-notice-close{flex:none;border:0;background:#2a607c;color:#fff;border-radius:.5em;padding:.3em .55em;font-size:1.2em}' +
+              '.str-config-input{display:block;width:100%;margin:.7em 0;box-sizing:border-box}' +
               '.str-tv-grid,.str-grid{min-width:0}.str-card,.str-stream-row{overflow-wrap:anywhere}' +
               '@media(max-width:700px){.str-head{gap:.45em;padding-top:.75em!important}.str-brand{font-size:1.13em!important}.str-head-actions{gap:.35em}.str-head-actions .str-btn{min-width:2.2em;padding:.43em .55em}.str-nav{gap:.3em;padding-bottom:.55em!important}.str-area{padding:1em!important;padding-bottom:calc(2rem + env(safe-area-inset-bottom,0px))!important}.str-section{font-size:1.12em;margin:.65em 0}.str-drm-controls,.str-demo-controls{gap:.4em}.str-drm-controls .str-btn,.str-demo-controls .str-btn{font-size:.86em;padding:.57em .65em}.str-demo-status{font-size:.88em}.str-video-shell{max-height:43vh!important}}' +
               '@media(max-height:570px){.str-video-shell{max-height:38vh!important}.str-demo-shell{max-height:35vh!important}.str-head{padding-top:.5em!important;padding-bottom:.3em!important}}'
