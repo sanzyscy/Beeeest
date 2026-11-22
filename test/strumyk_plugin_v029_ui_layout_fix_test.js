@@ -581,7 +581,7 @@
                 // Conservative fallback keeps the last button reachable.
                 var touch=false;
                 try{touch=!!(env.matchMedia&&env.matchMedia('(pointer: coarse)').matches);}catch(ignore){}
-                if(!reserved&&touch&&h>w&&w<=900)reserved=84;
+                if(!reserved&&touch&&h>w*1.15)reserved=Math.max(76,Math.min(104,Math.round(h*.10)));
                 reserved=Math.max(0,Math.min(reserved,Math.round(h*.29)));
                 root[0].style.setProperty('--str-bottom-safe',reserved+'px');
             }
