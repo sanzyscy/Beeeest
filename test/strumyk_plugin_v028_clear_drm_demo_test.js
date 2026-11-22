@@ -1001,9 +1001,10 @@
             }
             function startDrmDemo(){
                 if(!drmDemoOpen)return;
-                stopDrmDemo();
-                var serial=drmDemoSeq;
                 var v=drmDemoVideo;
+                stopDrmDemo();
+                drmDemoVideo=v;
+                var serial=drmDemoSeq;
                 var D=env.dashjs;
                 if(!v){drmDemoStatus('Помилка: немає відеоелемента');return;}
                 if(!env.isSecureContext){drmDemoStatus('Потрібний HTTPS Secure Context');return;}
@@ -1019,9 +1020,7 @@
                     drmDemoPlayer=player;
                     // ClearKey vectors published by the DASH-IF project in
                     // dash.js/samples/drm/clearkey.html (public test content).
-                    player.setProtectionData({'org.w3.clearkey':{
-                        clearkeys:{'nrQFDeRLSAKTLifXUIPiZg':'FmY0xnWCPCNaSpRG-tUuTQ'}
-                    }});
+
                     var events=D.MediaPlayer.events||{};
                     if(typeof player.on==='function'&&events.ERROR)player.on(events.ERROR,function(ev){
                         if(serial!==drmDemoSeq||!drmDemoOpen)return;
@@ -1046,6 +1045,10 @@
                     player.initialize(v,
                         'https://media.axprod.net/TestVectors/v7-MultiDRM-SingleKey/Manifest_1080p_ClearKey.mpd',
                         true);
+                    // dash.js public sample configures demo ClearKey after initialize().
+                    player.setProtectionData({'org.w3.clearkey':{
+                        clearkeys:{'nrQFDeRLSAKTLifXUIPiZg':'FmY0xnWCPCNaSpRG-tUuTQ'}
+                    }});
                     try{
                         var attempt=v.play();
                         if(attempt&&typeof attempt.catch==='function')attempt.catch(function(e){
