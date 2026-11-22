@@ -176,19 +176,21 @@
             entries.forEach(function(raw){
                 if(!raw || typeof raw!=='object'||Array.isArray(raw))return;
                 var id=str(raw.id);if(!id)return;
-                var ev=normalizeEvent(raw,base||DEFAULT_HOST);if(!ev)return;
+                var ev=normalizeEvent(raw,base||DEFAULT_HOST);
                 if(seen[id]){
-                    // Same event across J/O/M/X/L can supply additional provider variants.
-                    // Merge only sources, do not overwrite the first event title/status.
+                    // Additional APIs can return only id + _embeds (no title).
+                    // Accept source-only variants for known events without adding fake events.
                     var prev=seen[id],keys=Object.create(null);
+                    var incoming=ev?ev.sources:extractSources(raw,base||DEFAULT_HOST).concat(actualEmbeds(raw,base||DEFAULT_HOST));
                     (prev.sources||[]).forEach(function(x){keys[[x.url,x.language,x.quality,x.name].join('|')]=true;});
-                    (ev.sources||[]).forEach(function(x){
+                    (incoming||[]).forEach(function(x){
                         var key=[x.url,x.language,x.quality,x.name].join('|');
                         if(!keys[key]&&prev.sources.length<60){keys[key]=true;prev.sources.push(x);}
                     });
-                    if(!prev.league&&ev.league)prev.league=ev.league;
+                    if(ev&&!prev.league&&ev.league)prev.league=ev.league;
                     return;
                 }
+                if(!ev)return;
                 seen[id]=ev;
                 ev.apiSource=source;ev.popular=!!popular[id];
                 if(!ev.home && raw.title && typeof raw.title==='object'){
