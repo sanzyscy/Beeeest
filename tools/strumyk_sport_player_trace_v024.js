@@ -13,7 +13,7 @@ function safeUri(raw){
  try{
   if(!raw)return null;
   var u=new URL(raw,location.href);
-  var path=u.pathname.replace(/[a-zA-Z0-9_-]{35,}/g,'[opaque]');
+  var path=u.pathname.replace(/[a-zA-Z0-9_-]{16,}/g,'[opaque]');
   if(path.length>pathCap)path=path.slice(0,pathCap)+'…';
   return {host:u.hostname,path:path,queryNames:Array.from(u.searchParams.keys()).slice(0,16),
    queryPresent:!!u.search,scheme:u.protocol.replace(':',''),fragmentPresent:!!u.hash};
