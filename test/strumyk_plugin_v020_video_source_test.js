@@ -643,14 +643,15 @@
                         if(ref&&/^https?:\/\//i.test(ref))h.Referer=ref;
                         if(requestUA)h['User-Agent']=requestUA;
                         return request(media.url,h).then(function(raw){
-                            var txt=String(raw||'').replace(/^\uFEFF/,'').trimStart();
+                            var txt=String(raw||'').replace(/^\uFEFF/,'').replace(/^\s+/,'');
                             var valid=(media.type==='hls'?/^#EXTM3U\b/.test(txt):/<MPD[\s>]/i.test(txt.slice(0,1500)));
                             if(!valid)throw Error('NOT_MEDIA_MANIFEST');
                             return {url:media.url,type:media.type,headers:h,name:item.name||evt.title};
                         });
                     }).catch(function(e){
                         if(e&&e.message==='CANCELLED')throw e;
-                        notes.push((item.name||item.type).slice(0,45)+': '+clean(e&&e.message||e).slice(0,55));
+                        var errorCode=clean(e&&e.message||e).replace(/https?:\/\/[^\s"']+/g,'[URL]').replace(/[?&](?:token|sig|signature|key|auth)=[^\s&]+/gi,'[hidden]');
+                        notes.push((item.name||item.type).slice(0,45)+': '+errorCode.slice(0,55));
                         return tryOne(i+1);
                     });
                 }
