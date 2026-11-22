@@ -504,6 +504,13 @@
         function text(tag,cls,s){return $('<'+tag+'>').addClass(cls||'').text(s===undefined?'':s);}
         function btn(label,fn,key,cls){return text('button','selector str-btn '+(cls||''),label).attr({type:'button','data-str-key':key||label,tabindex:0}).on('hover:enter.str click.str',function(e){e.preventDefault();e.stopPropagation();fn();});}
         function notify(s){if(L.Noty&&L.Noty.show)L.Noty.show(s);}
+        function sourceErrorText(err){
+            var msg=clean(err&&err.message||err);
+            if(/(?:status\W*404|HTTP\s*404)/i.test(msg))return 'HTTP 404: WEB-джерело не відповідає на прямий запит';
+            if(/(?:status\W*403|HTTP\s*403)/i.test(msg))return 'HTTP 403: прямий доступ обмежений';
+            if(/TIMEOUT|AbortError/i.test(msg))return 'Час очікування вичерпано';
+            return msg.replace(/https?:\/\/[^\s"']+/g,'[URL]').replace(/[?&](?:token|sig|signature|key|auth)=[^\s&]+/gi,'[hidden]').slice(0,85);
+        }
         function menuSelect(title,items,callback){L.Select.show({title:title,nomark:true,items:items.map(function(v){return {title:v.title,subtitle:v.subtitle||'',id:v.id,selected:!!v.selected};}),onSelect:callback,onBack:function(){if(L.Controller)L.Controller.toggle('content');}});}
         /* Native HTTP headers only for selected Strumyk origin.
            Default browser-grade UA matched public API availability in Termux v0.18.
@@ -649,7 +656,7 @@
                     resolveOpenMedia(url,function(page,ref){return request(page,{Referer:ref||domain()});},1).then(function(media){
                         if(!active)return;playResolvedMedia(media,evt,choice.id);
                     }).catch(function(err){
-                        notify('Прямий потік недоступний: '+clean(err&&err.message||err).slice(0,75));
+                        notify('Прямий потік недоступний: '+sourceErrorText(err));
                         if(active)draw();
                     });
                 });
@@ -693,7 +700,7 @@
                         });
                     }).catch(function(e){
                         if(e&&e.message==='CANCELLED')throw e;
-                        var errorCode=clean(e&&e.message||e).replace(/https?:\/\/[^\s"']+/g,'[URL]').replace(/[?&](?:token|sig|signature|key|auth)=[^\s&]+/gi,'[hidden]');
+                        var errorCode=sourceErrorText(e);
                         notes.push((item.name||item.type).slice(0,45)+': '+errorCode.slice(0,55));
                         return tryOne(i+1);
                     });
@@ -770,7 +777,7 @@
                 }).catch(function(err){
                     if(!active||selected!==evt)return;
                     videoBusy=false;
-                    videoStatus='Не вдалося оновити джерела: '+clean(err&&err.message||err).replace(/https?:\/\/[^\s]+/g,'[URL]').slice(0,90);
+                    videoStatus='Не вдалося оновити джерела: '+sourceErrorText(err);
                     draw();
                 });
             }
