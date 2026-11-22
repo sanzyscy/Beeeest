@@ -729,6 +729,12 @@
                 var grid=$('<div class="str-grid str-tv-grid">');
                 rows.forEach(function(ch){
                     var card=$('<article class="str-card str-tv-card">');
+                    // Same interaction as Strumyk EPG rows: tapping the card itself opens the channel.
+                    // Child action buttons keep their own click handlers (no double playback).
+                    card.css('cursor','pointer').on('click',function(ev){
+                        if($(ev.target).closest('button,a,.selector').length)return;
+                        showTvChannel(ch);
+                    });
                     card.append(text('div','str-card-meta',ttv(ch.category)));
                     card.append(text('div','str-tv-channel-name','📺 '+ch.name));
                     card.append(epgBlock(ch));
