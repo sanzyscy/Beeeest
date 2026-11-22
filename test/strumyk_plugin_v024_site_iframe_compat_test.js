@@ -666,8 +666,10 @@
                 var title=(evt&&evt.title)||'STRUMYK';
                 var actions=[{id:'inner',title:'▶ Програмний плеєр (пошук HLS)'},{id:'android',title:'▶ Зовнішній VLC / MX Player (пошук HLS)'},
                     {id:'web',title:'WEB-плеєр (захищений)',subtitle:'Sandbox. Перевіряє старі /e/vip/ адреси'},
-                    {id:'compat',title:'⚠ WEB як на Strumyk (тест)',subtitle:'Без sandbox; можливі реклама й перенаправлення'},
                     {id:'browser',title:'Відкрити у браузері'}];
+                // Site app script was inspected for sports embeds only, not TV player.php.
+                if(kindOfSource==='sport')actions.splice(3,0,
+                    {id:'compat',title:'⚠ WEB як на Strumyk (тест)',subtitle:'Без sandbox; можливі реклама й перенаправлення'});
                 menuSelect('Як відкрити: '+title,actions,function(choice){
                     if(choice.id==='browser'){openBrowser(kindOfSource==='sport'&&evt&&evt.id?eventUrl('',domain(),evt.id):url);return;}
                     if(choice.id==='web'||choice.id==='compat'){
@@ -913,7 +915,7 @@
                 toolbar.append(btn('↗ '+tr('browser'),function(){openBrowser(v.siteEventId?eventUrl('',domain(),v.siteEventId):v.url);},'web-browser'));
                 toolbar.append(btn('↻ '+tr('refresh'),function(){draw();},'web-reload'));
                 area.append(toolbar);
-                area.append(text('div','str-tv-note',v.compat?'⚠ Режим сумісності зі Strumyk: iframe без sandbox, referrerpolicy=no-referrer-when-downgrade. Це не нативний HLS; браузер Lampa має інше походження, тому робота не гарантована.':v.hasEmbed?'Захищений WEB iframe в Lampa. Це не прямий HLS-потік.':'Сайт не надав прямої адреси каналу. Якщо iframe заблоковано — відкрий у браузері.'));
+                area.append(text('div','str-tv-note',v.compat?'⚠ Режим сумісності зі Strumyk: iframe без sandbox, referrerpolicy=no-referrer-when-downgrade. Це НЕ HLS; UA/Referer з HTTP-профілю Lampa не змінюють заголовки цього iframe. Походження залишається іншим.':v.hasEmbed?'Захищений WEB iframe в Lampa. Це не прямий HLS-потік.':'Сайт не надав прямої адреси каналу. Якщо iframe заблоковано — відкрий у браузері.'));
                 var box=$('<div class="str-video-shell">');
                 var attrs={src:v.url,allow:'fullscreen; encrypted-media; autoplay; picture-in-picture',
                            allowfullscreen:'',referrerpolicy:v.compat?'no-referrer-when-downgrade':'strict-origin-when-cross-origin'};
