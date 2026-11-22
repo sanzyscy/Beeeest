@@ -554,7 +554,7 @@
         }
         var currentScreen=null;
         function Screen() {
-            var self=this,active=false,working=false,seq=0,route='schedule',all=[],selected=null,failMessage='',currentHtml='',apiChecks=[],sportNote='',diagnosticsOpen=false,drmViewOpen=false,drmProbeStatus='не запускали',drmProbeBusy=false,drmProbeSeq=0,networkProbeSeq=0,networkProbeBusy=false,networkProbeStatus='не запускали',drmDemoOpen=false,drmDemoPlayer=null,drmDemoVideo=null,drmDemoSeq=0,layoutLastView='',layoutListenerActive=false,webView=null,detailSources=[],sourceFilter={language:'all',type:'all'},search='',searchEditing='',searchDraft='',filter={sport:'all',league:'all',date:'all',status:'all'},tvCategory='all',tvSearch='',tvEpgStatus='idle',tvEpgError='',tvEpg=[],tvEpgRequest=0,tvEpgFetched=0,tvClockServer=null,tvClockLocal=null,tvTimer=null,videoBusy=false,videoStatus='',tvChannels=normalizeTvChannels(TV_CATALOG_SNAPSHOT),root=$('<div class="str-screen">'),head=$('<div class="str-head">'),nav=$('<div class="str-nav">'),area=$('<div class="str-area">'),foot=$('<div class="str-foot">');
+            var self=this,active=false,working=false,seq=0,route='schedule',all=[],selected=null,failMessage='',currentHtml='',apiChecks=[],sportNote='',diagnosticsOpen=false,drmViewOpen=false,drmProbeStatus='не запускали',drmProbeBusy=false,drmProbeSeq=0,networkProbeSeq=0,networkProbeBusy=false,networkProbeStatus='не запускали',drmDemoOpen=false,drmDemoPlayer=null,drmDemoVideo=null,drmDemoSeq=0,layoutLastView='',layoutListenerActive=false,configEditing='',configDraft='',webView=null,detailSources=[],sourceFilter={language:'all',type:'all'},search='',searchEditing='',searchDraft='',filter={sport:'all',league:'all',date:'all',status:'all'},tvCategory='all',tvSearch='',tvEpgStatus='idle',tvEpgError='',tvEpg=[],tvEpgRequest=0,tvEpgFetched=0,tvClockServer=null,tvClockLocal=null,tvTimer=null,videoBusy=false,videoStatus='',tvChannels=normalizeTvChannels(TV_CATALOG_SNAPSHOT),root=$('<div class="str-screen">'),head=$('<div class="str-head">'),nav=$('<div class="str-nav">'),area=$('<div class="str-area">'),foot=$('<div class="str-foot">');
             root.append(head,nav,area,foot);
             /* Shared viewport/layout controller for every STRUMYK screen.
                Lampa mobile bars can overlay the Activity content. We reserve
@@ -586,6 +586,7 @@
                 root[0].style.setProperty('--str-bottom-safe',reserved+'px');
             }
             function layoutViewKey(){
+                if(configEditing)return 'config:'+configEditing;
                 if(drmDemoOpen)return 'drm-demo';
                 if(drmViewOpen)return 'drm-tools';
                 if(diagnosticsOpen)return 'diagnostics';
@@ -597,10 +598,11 @@
             function focus(preferred){if(!active)return;L.Controller.collectionSet(root);var n=preferred?root.find('.selector:visible[data-str-key="'+preferred+'"]'): $();if(!n.length)n=root.find('.selector:visible').first();L.Controller.collectionFocus(n.length?n:false,root);}
             function paintHeader(){head.empty().append(text('div','str-brand','⚡ STRUMYK').append(text('span','str-brand-tag',' SPORTS')),
                 $('<div class="str-head-actions">').append(btn('‹',back,'head-back','str-icon'),btn('↻',function(){if(route==='tv')loadTvEpg(true);else load();},'refresh','str-icon'),btn('⚙',settings,'settings','str-icon')));
-                nav.empty();[['schedule','schedule'],['live','live'],['favorites','fav'],['tv','tv']].forEach(function(x){nav.append(btn(x[1]==='tv'?ttv('tv'):tr(x[1]),function(){route=x[0];selected=null;searchEditing='';diagnosticsOpen=false;webView=null;draw();if(route==='tv'){if(tvEpgStatus==='idle')loadTvEpg(false);}else if(!all.length&&!working&&!failMessage)load();},'nav-'+x[0],route===x[0]?'str-current':''));});
+                nav.empty();[['schedule','schedule'],['live','live'],['favorites','fav'],['tv','tv']].forEach(function(x){nav.append(btn(x[1]==='tv'?ttv('tv'):tr(x[1]),function(){route=x[0];selected=null;searchEditing='';configEditing='';diagnosticsOpen=false;webView=null;draw();if(route==='tv'){if(tvEpgStatus==='idle')loadTvEpg(false);}else if(!all.length&&!working&&!failMessage)load();},'nav-'+x[0],route===x[0]?'str-current':''));});
             }
             function focusController(){L.Controller.add('content',{toggle:function(){focus();},left:function(){if(typeof Navigator!=='undefined'&&Navigator.canmove('left'))Navigator.move('left');else L.Controller.toggle('menu');},right:function(){if(typeof Navigator!=='undefined'&&Navigator.canmove('right'))Navigator.move('right');},up:function(){if(typeof Navigator!=='undefined'&&Navigator.canmove('up'))Navigator.move('up');},down:function(){if(typeof Navigator!=='undefined'&&Navigator.canmove('down'))Navigator.move('down');},back:back});L.Controller.toggle('content');}
             function back(){
+                if(configEditing){configEditing='';configDraft='';draw();return;}
                 if(searchEditing){searchEditing='';searchDraft='';draw();return;}
                 if(drmDemoOpen){closeDrmDemo();return;}
                 if(drmViewOpen){drmViewOpen=false;drmProbeSeq++;networkProbeSeq++;drmProbeBusy=false;networkProbeBusy=false;draw();return;}
@@ -624,7 +626,7 @@
             ],function(v){
                 if(v.id==='lang')menuSelect(tr('language'),[{id:'uk',title:'Українська'},{id:'pl',title:'Polski'},{id:'ru',title:'Русский'}],function(c){set('lang',c.id);draw();});
                 if(v.id==='player')menuSelect(tr('player'),[{id:'inner',title:tr('inner')},{id:'android',title:tr('external')},{id:'ask',title:tr('ask')}],function(c){set('player',c.id);draw();});
-                if(v.id==='host')L.Input.edit({title:tr('changeHost'),value:domain(),free:true,nosave:true},function(raw){var h=normalizeHost(raw);if(!h){notify(tr('unverified'));return;}set('host',h);tvEpgStatus='idle';tvEpg=[];tvEpgFetched=0;if(route==='tv')loadTvEpg(true);else load();});
+                if(v.id==='host'){configEditing='host';configDraft=domain();draw();}
                 if(v.id==='drm_check'){drmViewOpen=true;drmProbeStatus='не запускали';drmProbeBusy=false;networkProbeStatus='не запускали';networkProbeBusy=false;draw();}
                 if(v.id==='http_profile')menuSelect('HTTP-профіль Strumyk',[
                     {id:'chrome',title:'Android Chrome-подібний (рекомендовано)',subtitle:'UA Chrome 126 + Referer'},
@@ -909,20 +911,6 @@
                 var v=tvDirectOverrides()[ch.id],url=safeUrl(v),ty=kind(url);
                 return ['hls','dash','file'].indexOf(ty)>=0?url:'';
             }
-            function editTvDirect(ch){
-                var previous=directUrlForChannel(ch);
-                menuSelect('Власний медіапотік · '+ch.name,[
-                  {id:'edit',title:previous?'Змінити HLS/DASH/MP4':'Додати HLS/DASH/MP4'},
-                  {id:'clear',title:'Очистити власний потік'}
-                ],function(choice){
-                    if(choice.id==='clear'){var data=tvDirectOverrides();delete data[ch.id];set('tvDirectMedia',data);draw();return;}
-                    L.Input.edit({title:'Пряме медіапосилання · '+ch.name,value:previous||'',free:true,nosave:true},function(raw){
-                        var url=safeUrl(raw),type=kind(url);
-                        if(!url||['hls','dash','file'].indexOf(type)<0||url.length>3500){notify('Потрібне пряме посилання .m3u8, .mpd або .mp4');return;}
-                        var data=tvDirectOverrides();data[ch.id]=url;set('tvDirectMedia',data);draw();
-                    });
-                });
-            }
             function channelPage(ch){return domain()+'telewizja/#'+encodeURIComponent(ch.id);}
             function showTvChannel(ch){
                 // The catalog lists 51 channels with empty ch.url: the hash-router is
@@ -953,6 +941,38 @@
             /* Tests capabilities exposed in the running WebView only.
                No media URLs, no EME sessions, no key material, no license
                requests. This is NOT an attempt to decrypt Strumyk. */
+            /* URL editor integrated in STRUMYK, not Lampa.Input.edit dialog.
+               Keeps Apply/Cancel reachable above the host's bottom navigation. */
+            function configView(){
+                area.empty();
+                area.append(text('h2','str-section','Адреса сайту Strumyk'));
+                area.append(text('div','str-tv-note','Підтримуються лише перевірені домени Strumyk через HTTPS. Дані старого сервера не видаляються.'));
+                var field=$('<input type="url" class="selector str-search-field str-config-input">')
+                    .attr({placeholder:'https://strumyk.ca/',tabindex:0,
+                           autocomplete:'off',autocorrect:'off',spellcheck:'false'})
+                    .val(configDraft||domain());
+                var message=text('div','str-tv-status','');
+                var controls=$('<div class="str-demo-controls">');
+                function cancel(){configEditing='';configDraft='';draw();}
+                function apply(){
+                    var h=normalizeHost(String(field.val()||'').trim());
+                    if(!h){message.text('Некоректний URL. Використай https://strumyk.ca/ або інший підтверджений домен Strumyk.');return;}
+                    set('host',h);configEditing='';configDraft='';
+                    all=[];failMessage='';working=false;tvEpgStatus='idle';tvEpg=[];tvEpgFetched=0;
+                    if(route==='tv'){draw();loadTvEpg(true);}else load();
+                }
+                field.on('input',function(){configDraft=String(field.val()||'').slice(0,600);});
+                field.on('click focus',function(e){e.stopPropagation();});
+                field.on('keydown',function(e){
+                    if(e.key==='Enter'){e.preventDefault();e.stopPropagation();apply();}
+                    else if(e.key==='Escape'){e.preventDefault();e.stopPropagation();cancel();}
+                    else e.stopPropagation();
+                });
+                area.append(field,message);
+                controls.append(btn('✓ Зберегти адресу',apply,'config-save'),
+                                btn('✕ Скасувати',cancel,'config-cancel'));
+                area.append(controls);
+            }
             function drmEnvironment(){
                 var nav=env.navigator||{};
                 var l=env.location||{};
@@ -1291,7 +1311,7 @@
                     if(active&&route==='tv'&&!webView&&!diagnosticsOpen)draw();
                 });
             }
-            function draw(){if(!active)return;syncUiInsets();var viewKey=layoutViewKey();if(layoutLastView!==viewKey){layoutLastView=viewKey;area.scrollTop(0);}paintHeader();if(drmDemoOpen){drmDemoView();foot.text('STRUMYK · '+VERSION);focus('demo-back');return;}if(drmViewOpen){drmView();foot.text('STRUMYK · '+VERSION);focus('drm-back');return;}if(diagnosticsOpen){diagnosticsView();foot.text('STRUMYK · '+VERSION);focus('diag-close');return;}if(webView){webPlayer();foot.text('STRUMYK · '+VERSION);focus('web-back');return;}if(selected){detail();foot.text('STRUMYK · '+VERSION);focus('back');return;}area.empty();if(route==='tv'){tvCards();foot.text(domain()+' · '+VERSION);focus('tv-category');return;}listTools();var rows=route==='favorites'?favorites().map(function(f){return all.find(function(e){return e.id===f.id;})||f;}):all;rows=filterEvents(rows,{onlyLive:route==='live',search:search,sport:filter.sport,league:filter.league,date:filter.date,status:filter.status});area.append(text('div','str-section',tr(route==='favorites'?'fav':route==='live'?'live':'schedule')+' · '+rows.length));if(sportNote && route!=='favorites')area.append(text('div','str-tv-note',sportNote));if(rows.length)eventCards(rows);else {
+            function draw(){if(!active)return;syncUiInsets();var viewKey=layoutViewKey();if(layoutLastView!==viewKey){layoutLastView=viewKey;area.scrollTop(0);}paintHeader();if(configEditing){configView();foot.text('STRUMYK · '+VERSION);focus('config-cancel');return;}if(drmDemoOpen){drmDemoView();foot.text('STRUMYK · '+VERSION);focus('demo-back');return;}if(drmViewOpen){drmView();foot.text('STRUMYK · '+VERSION);focus('drm-back');return;}if(diagnosticsOpen){diagnosticsView();foot.text('STRUMYK · '+VERSION);focus('diag-close');return;}if(webView){webPlayer();foot.text('STRUMYK · '+VERSION);focus('web-back');return;}if(selected){detail();foot.text('STRUMYK · '+VERSION);focus('back');return;}area.empty();if(route==='tv'){tvCards();foot.text(domain()+' · '+VERSION);focus('tv-category');return;}listTools();var rows=route==='favorites'?favorites().map(function(f){return all.find(function(e){return e.id===f.id;})||f;}):all;rows=filterEvents(rows,{onlyLive:route==='live',search:search,sport:filter.sport,league:filter.league,date:filter.date,status:filter.status});area.append(text('div','str-section',tr(route==='favorites'?'fav':route==='live'?'live':'schedule')+' · '+rows.length));if(sportNote && route!=='favorites')area.append(text('div','str-tv-note',sportNote));if(rows.length)eventCards(rows);else {
                     area.append(text('div','str-empty',failMessage||tr('noEvents')));
                     if(failMessage){area.append(text('p','str-note',tr('probe')));area.append(btn(tr('diagnostics'),diagnostics,'diagnostics'));area.append(btn(tr('reload'),load,'retry'));}
                 }foot.text(domain()+' · '+VERSION);focus();}
@@ -1362,7 +1382,7 @@
             this.showEmbedded=function(url,title){webView={url:url,title:title||'WEB Player',isTv:false,hasEmbed:true};draw();};
             this.create=function(parent){if(parent&&parent.css)parent.css({height:'100%',minHeight:0});return root;};this.render=function(){return root;};
             this.start=function(){active=true;currentScreen=this;env.document.body.classList.add('strumyk-active');if(!layoutListenerActive&&env.addEventListener){env.addEventListener('resize',onLayoutResize);layoutListenerActive=true;}syncUiInsets();focusController();if(tvTimer===null)tvTimer=env.setInterval(refreshTvVisuals,30000);if(route==='tv'){draw();if(tvEpgStatus==='idle')loadTvEpg(false);}else if(!all.length&&!working&&!failMessage)load();else draw();};
-            this.stop=function(){if(layoutListenerActive&&env.removeEventListener){env.removeEventListener('resize',onLayoutResize);layoutListenerActive=false;}layoutLastView='';stopDrmDemo();drmDemoOpen=false;root.find('.str-video-frame').attr('src','about:blank').remove();active=false;searchEditing='';searchDraft='';drmProbeSeq++;drmProbeBusy=false;networkProbeSeq++;networkProbeBusy=false;drmViewOpen=false;videoBusy=false;videoStatus='';seq++;tvEpgRequest++;if(tvEpgStatus==='loading')tvEpgStatus='idle';if(tvTimer!==null){env.clearInterval(tvTimer);tvTimer=null;}env.document.body.classList.remove('strumyk-active');};this.pause=this.stop;
+            this.stop=function(){if(layoutListenerActive&&env.removeEventListener){env.removeEventListener('resize',onLayoutResize);layoutListenerActive=false;}layoutLastView='';stopDrmDemo();drmDemoOpen=false;root.find('.str-video-frame').attr('src','about:blank').remove();active=false;searchEditing='';searchDraft='';configEditing='';configDraft='';drmProbeSeq++;drmProbeBusy=false;networkProbeSeq++;networkProbeBusy=false;drmViewOpen=false;videoBusy=false;videoStatus='';seq++;tvEpgRequest++;if(tvEpgStatus==='loading')tvEpgStatus='idle';if(tvTimer!==null){env.clearInterval(tvTimer);tvTimer=null;}env.document.body.classList.remove('strumyk-active');};this.pause=this.stop;
             this.destroy=function(){self.stop();root.remove();if(currentScreen===this)currentScreen=null;};
         }
         function open(){L.Activity.push({url:'',title:'STRUMYK',component:'strumyk_sports',page:1});}
