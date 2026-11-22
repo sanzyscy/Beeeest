@@ -1,4 +1,4 @@
-/* STRUMYK for Lampa — test build 0.14.0
+/* STRUMYK for Lampa — standalone HTTP test build 0.19.0
  * Site: https://strumyk.ca/  |  No background proxy, no DRM bypass.
  * One-file installation. This build intentionally reports unknown site API instead of inventing streams.
  */
@@ -508,7 +508,7 @@
             }
             if(profile!=='basic') {
                 result['User-Agent']=ua;
-                result['Referer']=domain();
+                if(profile!=='chrome_ua')result['Referer']=domain();
             }
             result['Accept']=/\/api\/[^/]+\.php$/.test(target.pathname)?'application/json':'text/html,application/json;q=0.9,*/*;q=0.8';
             result['Accept-Language']='uk-UA,uk;q=0.9,pl;q=0.8,en;q=0.7';
@@ -565,6 +565,7 @@
                 if(v.id==='host')L.Input.edit({title:tr('changeHost'),value:domain(),free:true,nosave:true},function(raw){var h=normalizeHost(raw);if(!h){notify(tr('unverified'));return;}set('host',h);tvEpgStatus='idle';tvEpg=[];tvEpgFetched=0;if(route==='tv')loadTvEpg(true);else load();});
                 if(v.id==='http_profile')menuSelect('HTTP-профіль Strumyk',[
                     {id:'chrome',title:'Android Chrome-подібний (рекомендовано)',subtitle:'UA Chrome 126 + Referer'},
+                    {id:'chrome_ua',title:'Chrome UA БЕЗ Referer',subtitle:'Тест впливу Referer'},
                     {id:'webview',title:'UA цієї Lampa/WebView',subtitle:'UA пристрою + Referer'},
                     {id:'basic',title:'Без явного UA / Referer',subtitle:'Базова перевірка'}
                 ],function(c){set('http_profile',c.id);if(route==='tv')loadTvEpg(true);else load();});
